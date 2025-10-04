@@ -73,13 +73,3 @@ def segment_water(image_paths: Union[str, List[str]], display: bool = True) -> U
     # Return single image or list based on input
     return annotated_images[0] if single_image else annotated_images
 
-
-# Example usage:
-if __name__ == "__main__":
-
-    image_files = [
-        r"C:\Users\omarj\Downloads\water_body_1022.jpg",
-        r"C:\Users\omarj\Downloads\water_body_1011.jpg",
-        r"C:\Users\omarj\Downloads\water_body_100.jpg"
-    ]
-    annotated_images = segment_water(image_files)

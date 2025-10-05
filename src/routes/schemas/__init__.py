@@ -1,1 +1,1 @@
-from .DataSchema import DataSchema
+from .DataSchema import MultipleImagesResponse

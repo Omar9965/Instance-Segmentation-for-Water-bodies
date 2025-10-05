@@ -7,5 +7,3 @@ class Response(Enum):
     File_too_large = f"File is too large. Max file size is {max_file_size // (1024 * 1024)}MB"
     File_Uploaded_Successfully = "File was Uploaded Successfully"
     File_Upload_Failed = "File Upload Failed"
-    Processing_Successful = "File was Processed Successfully"
-    File_Processing_Failed = "File Processing Failed"

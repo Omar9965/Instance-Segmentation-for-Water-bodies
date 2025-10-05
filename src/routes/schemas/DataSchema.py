@@ -1,13 +1,9 @@
-from typing import List, Optional
 from pydantic import BaseModel, Field
+from typing import List
 
 class Point(BaseModel):
     x: float
     y: float
-
-    class Config:
-        extra = "allow"  
-
 
 class Prediction(BaseModel):
     x: float
@@ -15,17 +11,14 @@ class Prediction(BaseModel):
     width: float
     height: float
     confidence: float
-    class_: str = Field(..., alias="class")  # accept "class" from JSON
-    points: Optional[List[Point]] = None
+    class_: str = Field(..., alias="class")
+    points: List[Point]
     class_id: int
     detection_id: str
 
-    class Config:
-        extra = "allow"
-
-
-class DataSchema(BaseModel):
+class ImageResult(BaseModel):
+    image: str
     predictions: List[Prediction]
 
-    class Config:
-        extra = "allow"
+class MultipleImagesResponse(BaseModel):
+    results: List[ImageResult]

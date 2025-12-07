@@ -60,8 +60,7 @@ API_KEY=your-roboflow-api-key
 
 The application uses environment variables for configuration. Key settings include:
 
-- `MODEL_API_URL`: Your Roboflow model endpoint
-- `API_KEY`: Authentication key for the model API
+ API
 - Maximum file size: 500 MB (configurable in `models/responses.py`)
 - Allowed file types: JPG, PNG, TIFF, JPEG
 
@@ -165,118 +164,85 @@ Upload images without processing (validation only).
 | `height` | float | Height of bounding box |
 | `confidence` | float | Prediction confidence score (0-1) |
 | `class` | string | Object class name |
-| `class_id` | integer | Numeric class identifier |
-| `detection_id` | string | Unique identifier for this detection |
-| `points` | array | Polygon coordinates for segmentation mask |
+# Instance Segmentation for Water Bodies
 
-### Error Responses
+Lightweight FastAPI application that performs instance segmentation to detect and visualize water bodies in images using a YOLO model. This repository contains the backend API, a small frontend (static files + template) to upload images and preview segmentation, and the YOLO model artifact.
 
-#### 400 Bad Request
-```json
-{
-  "detail": "File type is not supported. Types allowed are jpg, png, tiff, jpeg"
-}
+TL;DR — run the server, open http://127.0.0.1:8000 and use the web UI or POST images to the API.
+
+## What changed (summary)
+- Separated inference and visualization: `src/models/YOLO_Model/inference_yolo.py` (model prediction) and `src/models/YOLO_Model/visualize.py` (mask rendering)
+- Simple web frontend in `src/templates/index.html` + `src/static/style.css`, `src/static/script.js` for upload and preview
+- Main segmentation endpoint: `POST /api/v1/segment-image` (returns processed PNG image)
+- Model binary stored in: `src/models/YOLO_Model/best_model.pt`
+
+## Quickstart (Windows PowerShell)
+1. Create & activate a virtual environment
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
 ```
 
-#### 422 Unprocessable Entity
-```json
-{
-  "detail": "Field required"
-}
+2. Install dependencies
+
+```powershell
+pip install -r requirements.txt
 ```
 
-#### 500 Internal Server Error
-```json
-{
-  "detail": "Segmentation failed: <error message>"
-}
+3. Start the app (from project root)
+
+```powershell
+cd src
+python -m uvicorn main:app --reload
 ```
 
-## Examples
+4. Open the UI in your browser:
 
-### Python Example
+- http://127.0.0.1:8000 (web interface)
+- API docs: http://127.0.0.1:8000/docs
+
+## Important files & locations
+- `src/main.py` — FastAPI app and static/template mounting
+- `src/routes/data.py` — upload & segmentation endpoints
+- `src/models/YOLO_Model/inference_yolo.py` — runs YOLO `model.predict(...)`
+- `src/models/YOLO_Model/visualize.py` — renders masks/overlays for output images
+- `src/models/YOLO_Model/best_model.pt` — model weights (tracked here for local testing)
+- `src/templates/index.html` — web UI template
+- `src/static/style.css`, `src/static/script.js` — frontend styles and JS
+
+## Endpoints
+- `GET /` — serves the web UI
+- `POST /api/v1/segment-image` — upload one image (multipart/form-data `file`) and receive a rendered PNG image with water masks applied (FileResponse)
+- `POST /api/v1/upload-and-segment` — (legacy / JSON) endpoint that returns structured prediction JSON (if present)
+
+Example using `curl` (upload + receive image):
+
+```bash
+curl -X POST "http://127.0.0.1:8000/api/v1/segment-image" -F "file=@path/to/image.jpg" --output segmented.png
+```
+
+Example using Python `requests`:
+
 ```python
 import requests
 
-# Single image
-url = "http://127.0.0.1:8000/api/v1/upload-and-segment"
-files = {"files": open("water_image.jpg", "rb")}
-response = requests.post(url, files=files)
-print(response.json())
-
-# Multiple images
-files = [
-    ("files", open("image1.jpg", "rb")),
-    ("files", open("image2.png", "rb"))
-]
-response = requests.post(url, files=files)
-print(response.json())
+with open('image.jpg', 'rb') as f:
+    r = requests.post('http://127.0.0.1:8000/api/v1/segment-image', files={'file': f})
+    with open('segmented.png', 'wb') as out:
+        out.write(r.content)
 ```
 
-### cURL Example
-```bash
-# Single image
-curl -X POST "http://127.0.0.1:8000/api/v1/upload-and-segment" \
-  -F "files=@water_image.jpg"
+## Frontend behavior
+- The UI (`/`) allows drag-and-drop or click-to-upload. After selecting a file the UI sends it to `/api/v1/segment-image` and displays the original and processed images side-by-side.
 
-# Multiple images
-curl -X POST "http://127.0.0.1:8000/api/v1/upload-and-segment" \
-  -F "files=@image1.jpg" \
-  -F "files=@image2.png"
-```
+## Configuration and environment
+- By default the app looks for local model weights at `src/models/YOLO_Model/best_model.pt`. If you use a different path, update the model loader in `inference_yolo.py`.
+- Optional environment variables (in `.env`) are used by `src/utils/configs.py` — review that file if you need to expose additional runtime settings.
 
+## Troubleshooting
+- 422 Unprocessable Entity on upload: make sure you send multipart/form-data and the form field is named `file` (for `/api/v1/segment-image`) or `files` for the multi-file endpoint.
+- Model not found: confirm `best_model.pt` exists in `src/models/YOLO_Model/`
+- If the frontend doesn't load styles/scripts, verify the static files are in `src/static/` and `src/main.py` mounts the static folder.
 
-### Health Check
-```http
-GET /
-```
-Returns API status.
-
-**Response:**
-```json
-{
-  "app_name": "Water Segmentation API",
-  "status": "running",
-  "version": "0.1.0"
-}
-```
-
-...
-
-## Project Structure
-```text
-src/
-│
-├── controllers/                     # Business logic and application controllers
-│   ├── __init__.py
-│   ├── BaseController.py
-│   └── DataController.py
-│
-├── models/                          # Data models and ML model files
-│   ├── enums/                       # Enumerations for constants or choices
-│   ├── YOLO_Model/                  # YOLO model implementation
-│   └── __init__.py
-│
-├── routes/                          # FastAPI route definitions
-│   ├── schemas/                     # Pydantic schemas for validation
-│   │   ├── __init__.py
-│   │   ├── base.py
-│   │   └── data.py
-│   ├── __init__.py
-│   ├── base.py                      # Base API routes
-│   └── data.py                      # Data-specific endpoints
-│
-├── utils/                           # Utility and configuration helpers
-│   ├── __init__.py
-│   └── configs.py                   # Environment and settings management
-│
-├── main.py                          # Application entry point
-├── .env                             # Environment variables (git-ignored)
-├── .env.example                     # Example env file
-├── requirements.txt                 # Project dependencies
-├── README.md                        # Project documentation
-└── .gitignore                       # Git ignore rules
-```
-
-...
 

@@ -1,1 +1,2 @@
 from .inference_yolo import segment_water
+from .visualize import visualize_water_segmentation

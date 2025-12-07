@@ -1,49 +1,80 @@
-from inference import get_model
-import supervision as sv
+from ultralytics import YOLO
 import os
 import cv2
-from typing import List, Union, Dict, Any
+from typing import List, Union, Dict, Any, Tuple
 from utils import get_settings, Settings
 
 settings: Settings = get_settings()
 
-MODEL_API_URL = settings.MODEL_API_URL
-API_KEY = settings.API_KEY
 
-def segment_water(image_paths: Union[str, List[str]], display: bool = False) -> Dict[str, Any]:
+best_model = os.path.join(os.path.dirname(__file__), "best_model.pt")
+
+def segment_water(image_paths: Union[str, List[str]]) -> Tuple[Dict[str, Any], List]:
+    """
+    Segment water bodies in images and return both predictions and raw results.
+    
+    Returns:
+        Tuple of (predictions_dict, raw_results_list)
+    """
     single_image = isinstance(image_paths, str)
     if single_image:
         image_paths = [image_paths]
     
-    model = get_model(model_id=MODEL_API_URL, api_key=API_KEY)
+    model = YOLO(best_model)
     
     results_per_image = []
+    raw_results = []
     
     for image_path in image_paths:
         image = cv2.imread(image_path)
         if image is None:
             continue
         
-        results = model.infer(image)[0]
+        # Use predict() for inference
+        results = model.predict(image, verbose=False)[0]
+        raw_results.append((image_path, results))
         
         image_predictions = []
-        if hasattr(results, 'predictions'):
-            for pred in results.predictions:
-                prediction_dict = {
-                    "x": float(pred.x),
-                    "y": float(pred.y),
-                    "width": float(pred.width),
-                    "height": float(pred.height),
-                    "confidence": float(pred.confidence),
-                    "class": pred.class_name if hasattr(pred, 'class_name') else str(getattr(pred, 'class')),
-                    "class_id": int(pred.class_id),
-                    "detection_id": pred.detection_id if hasattr(pred, 'detection_id') else str(id(pred)),
-                }
+        
+        # Check if masks exist (for instance segmentation)
+        if results.masks is not None and len(results.masks) > 0:
+            for idx in range(len(results.masks)):
+                # Get bounding box
+                box = results.boxes[idx]
+                xyxy = box.xyxy[0].cpu().numpy()
+                x, y, x2, y2 = xyxy
+                width = x2 - x
+                height = y2 - y
                 
-                if hasattr(pred, 'points') and pred.points is not None:
-                    prediction_dict["points"] = [
-                        {"x": float(point.x), "y": float(point.y)} for point in pred.points
+                # Get segmentation mask polygon points
+                mask = results.masks[idx]
+                if hasattr(mask, 'xy') and len(mask.xy) > 0:
+                    # mask.xy contains the polygon points
+                    polygon_points = mask.xy[0]  # Get first contour
+                    points = [
+                        {"x": float(point[0]), "y": float(point[1])} 
+                        for point in polygon_points
                     ]
+                else:
+                    # Fallback: create points from bounding box corners
+                    points = [
+                        {"x": float(x), "y": float(y)},
+                        {"x": float(x2), "y": float(y)},
+                        {"x": float(x2), "y": float(y2)},
+                        {"x": float(x), "y": float(y2)}
+                    ]
+                
+                prediction_dict = {
+                    "x": float(x),
+                    "y": float(y),
+                    "width": float(width),
+                    "height": float(height),
+                    "confidence": float(box.conf[0].cpu().numpy()),
+                    "class": results.names[int(box.cls[0].cpu().numpy())],
+                    "class_id": int(box.cls[0].cpu().numpy()),
+                    "detection_id": f"{idx}_{int(box.cls[0].cpu().numpy())}",
+                    "points": points
+                }
                 
                 image_predictions.append(prediction_dict)
         
@@ -52,7 +83,5 @@ def segment_water(image_paths: Union[str, List[str]], display: bool = False) -> 
             "predictions": image_predictions
         })
 
-    if single_image:
-        return results_per_image[0]
-    else:
-        return {"results": results_per_image}
+
+    return {"results": results_per_image}, raw_results

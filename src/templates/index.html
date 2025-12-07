@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Water Body Segmentation - AI Instance Segmentation</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <h1>🌊 Water Body Segmentation</h1>
+            <p class="subtitle">AI-powered instance segmentation for detecting water bodies in satellite and aerial imagery</p>
+        </header>
+
+        <div class="upload-section">
+            <div class="upload-area" id="uploadArea">
+                <div class="upload-icon">📸</div>
+                <div class="upload-text">Click to upload or drag and drop</div>
+                <div class="upload-subtext">Supports: JPG, PNG, JPEG, TIFF • Max 500MB</div>
+                <input type="file" id="fileInput" accept=".jpg,.jpeg,.png,.tiff" />
+            </div>
+
+            <div class="message error" id="errorMsg"></div>
+            <div class="message success" id="successMsg"></div>
+
+            <div class="loading" id="loading">
+                <div class="spinner"></div>
+                <p>Processing your image... Detecting water bodies</p>
+            </div>
+
+            <div class="buttons-container hidden" id="buttonsContainer">
+                <button class="btn btn-primary" id="processBtn">
+                    <span>🔄</span> Process Image
+                </button>
+                <button class="btn btn-secondary" id="resetBtn">
+                    <span>🔃</span> Upload Another
+                </button>
+            </div>
+        </div>
+
+        <div class="results-container hidden" id="imagesContainer">
+            <h2 class="results-title">Segmentation Results</h2>
+            <div class="images-grid">
+                <div class="image-card">
+                    <h3>Original Image</h3>
+                    <div class="image-wrapper">
+                        <img id="originalImg" alt="Original" />
+                    </div>
+                </div>
+                <div class="image-card">
+                    <h3>Water Body Detection</h3>
+                    <div class="image-wrapper">
+                        <img id="segmentedImg" alt="Segmented" />
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <footer class="footer">
+            <p>Powered by YOLO Instance Segmentation</p>
+        </footer>
+    </div>
+
+    <script src="/static/script.js"></script>
+</body>
+</html>

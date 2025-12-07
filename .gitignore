@@ -7,6 +7,8 @@ water/
 # C extensions
 *.so
 
+src/assets
+
 # Distribution / packaging
 .Python
 build/

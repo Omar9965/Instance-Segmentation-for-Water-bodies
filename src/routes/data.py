@@ -103,7 +103,7 @@ async def segment_single_image(file: UploadFile = File(...)):
             shutil.copyfileobj(file.file, buffer)
         
         # Run segmentation to get results
-        predictions, raw_results = segment_water(temp_path)
+        _, raw_results = segment_water(temp_path)
         
         # Visualize using the segmentation results
         if raw_results and len(raw_results) > 0:

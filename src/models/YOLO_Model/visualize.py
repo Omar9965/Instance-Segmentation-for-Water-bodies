@@ -29,17 +29,9 @@ def visualize_water_segmentation(
         raise ValueError(f"Could not read image from {image_path}")
     
     # Build Supervision Detections from YOLO results
-    boxes = yolo_results.boxes
     masks = yolo_results.masks
 
-    if boxes is not None and len(boxes) > 0:
-        xyxy = boxes.xyxy.cpu().numpy()
-        cls = boxes.cls.cpu().numpy().astype(int)
-        conf = boxes.conf.cpu().numpy().astype(float)
-    else:
-        xyxy = np.empty((0, 4), dtype=np.float32)
-        cls = np.empty((0,), dtype=int)
-        conf = np.empty((0,), dtype=float)
+
 
     if masks is not None and len(masks) > 0:
         # masks.data shape: (N, H, W)

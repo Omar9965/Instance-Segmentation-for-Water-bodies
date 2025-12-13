@@ -51,15 +51,29 @@ def visualize_water_segmentation(
 
     annotated_image = image.copy()
 
+    COLORS = [
+        (255, 0, 0),      
+        (0, 255, 0),      
+        (0, 0, 255),      
+        (255, 255, 0),   
+        (255, 0, 255),  
+        (0, 255, 255),   
+        (128, 0, 255),    
+        (255, 128, 0),   
+        (0, 128, 255),    
+        (128, 255, 0),    
+        (255, 0, 128),    
+        (0, 255, 128), 
+    ]
+
     # Manually draw masks using OpenCV for guaranteed visibility
     if mask_array is not None and len(mask_array) > 0:
-        # Create a colored overlay
         overlay = image.copy()
-        color_bgr = (123, 234, 123)
         img_h, img_w = image.shape[:2]
         
         for i in range(len(mask_array)):
             mask = mask_array[i]
+            color_bgr = COLORS[i % len(COLORS)]  # Cycle through colors
             
             # Resize mask to match image dimensions if needed
             if mask.shape != (img_h, img_w):

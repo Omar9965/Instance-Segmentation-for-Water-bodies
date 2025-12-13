@@ -8,10 +8,11 @@ const errorMsg = $('errorMsg');
 const successMsg = $('successMsg');
 const imagesContainer = $('imagesContainer');
 const buttonsContainer = $('buttonsContainer');
-const originalImg = $('originalImg');
-const segmentedImg = $('segmentedImg');
+const selectedFilesDiv = $('selectedFiles');
+const fileList = $('fileList');
+const resultsGrid = $('resultsGrid');
 
-let selectedFile = null;
+let selectedFiles = [];
 
 const showMessage = (isError, message) => {
     const [show, hide] = isError ? [errorMsg, successMsg] : [successMsg, errorMsg];
@@ -19,9 +20,8 @@ const showMessage = (isError, message) => {
     show.classList.add('active');
     hide.classList.remove('active');
     
-    // Auto-hide success messages after 5 seconds
     if (!isError) {
-        setTimeout(() => hide.classList.remove('active'), 5000);
+        setTimeout(() => show.classList.remove('active'), 5000);
     }
 };
 
@@ -30,34 +30,35 @@ const hideMessages = () => {
     successMsg.classList.remove('active');
 };
 
-const handleFileSelect = file => {
-    if (!file) return;
+const handleFileSelect = files => {
+    if (!files || files.length === 0) return;
 
     const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/tiff'];
-    if (!validTypes.includes(file.type)) {
-        return showMessage(true, '❌ Invalid file type. Please upload JPG, PNG, or TIFF images.');
+    const validFiles = [];
+    
+    for (const file of files) {
+        if (!validTypes.includes(file.type)) {
+            showMessage(true, `❌ "${file.name}" has invalid type. Use JPG, PNG, or TIFF.`);
+            continue;
+        }
+        if (file.size > 500 * 1024 * 1024) {
+            showMessage(true, `❌ "${file.name}" is too large. Max 500MB.`);
+            continue;
+        }
+        validFiles.push(file);
     }
 
-    if (file.size > 500 * 1024 * 1024) {
-        return showMessage(true, '❌ File is too large. Maximum size is 500MB.');
-    }
+    if (validFiles.length === 0) return;
 
-    selectedFile = file;
-    showMessage(false, `✅ File "${file.name}" selected successfully!`);
+    selectedFiles = validFiles;
+    showMessage(false, `✅ ${validFiles.length} file(s) selected successfully!`);
 
-    const reader = new FileReader();
-    reader.onload = e => {
-        originalImg.src = e.target.result;
-        imagesContainer.classList.remove('hidden');
-        buttonsContainer.classList.remove('hidden');
-        segmentedImg.src = '';
-        
-        // Scroll to results
-        setTimeout(() => {
-            imagesContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-        }, 100);
-    };
-    reader.readAsDataURL(file);
+    // Show file list
+    fileList.innerHTML = selectedFiles.map(f => `<li>📄 ${f.name}</li>`).join('');
+    selectedFilesDiv.classList.remove('hidden');
+    buttonsContainer.classList.remove('hidden');
+    imagesContainer.classList.add('hidden');
+    resultsGrid.innerHTML = '';
 };
 
 uploadArea.addEventListener('click', () => fileInput.click());
@@ -74,42 +75,69 @@ uploadArea.addEventListener('dragleave', () => {
 uploadArea.addEventListener('drop', e => {
     e.preventDefault();
     uploadArea.classList.remove('dragover');
-    handleFileSelect(e.dataTransfer.files[0]);
+    handleFileSelect(e.dataTransfer.files);
 });
 
-fileInput.addEventListener('change', e => handleFileSelect(e.target.files[0]));
+fileInput.addEventListener('change', e => handleFileSelect(e.target.files));
 
 processBtn.addEventListener('click', async () => {
-    if (!selectedFile) {
-        return showMessage(true, '❌ Please select a file first.');
+    if (selectedFiles.length === 0) {
+        return showMessage(true, '❌ Please select files first.');
     }
 
     hideMessages();
     loading.classList.add('active');
     processBtn.disabled = true;
-
-    const formData = new FormData();
-    formData.append('file', selectedFile);
+    resultsGrid.innerHTML = '';
 
     try {
-        const response = await fetch('/api/v1/segment-image', {
-            method: 'POST',
-            body: formData
-        });
+        // Process each file individually to get visualized images
+        for (const file of selectedFiles) {
+            const formData = new FormData();
+            formData.append('file', file);
 
-        if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.detail || 'Segmentation failed');
+            const response = await fetch('/api/v1/segment-image', {
+                method: 'POST',
+                body: formData
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.detail || `Failed to process ${file.name}`);
+            }
+
+            const blob = await response.blob();
+            const segmentedUrl = URL.createObjectURL(blob);
+            
+            // Create original image URL
+            const originalUrl = URL.createObjectURL(file);
+
+            // Add result card
+            const resultCard = document.createElement('div');
+            resultCard.className = 'result-card';
+            resultCard.innerHTML = `
+                <h3 class="result-filename">📄 ${file.name}</h3>
+                <div class="result-images">
+                    <div class="result-image-box">
+                        <span class="result-label">Original</span>
+                        <img src="${originalUrl}" alt="Original" />
+                    </div>
+                    <div class="result-image-box">
+                        <span class="result-label">Segmented</span>
+                        <img src="${segmentedUrl}" alt="Segmented" />
+                    </div>
+                </div>
+            `;
+            resultsGrid.appendChild(resultCard);
         }
 
-        const blob = await response.blob();
-        segmentedImg.src = URL.createObjectURL(blob);
-        showMessage(false, '✅ Water body segmentation completed successfully!');
+        imagesContainer.classList.remove('hidden');
+        showMessage(false, `✅ Successfully processed ${selectedFiles.length} image(s)!`);
         
-        // Scroll to see results
         setTimeout(() => {
-            imagesContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            imagesContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }, 100);
+
     } catch (error) {
         showMessage(true, `❌ Error: ${error.message}`);
     } finally {
@@ -119,14 +147,13 @@ processBtn.addEventListener('click', async () => {
 });
 
 resetBtn.addEventListener('click', () => {
-    selectedFile = null;
+    selectedFiles = [];
     fileInput.value = '';
-    originalImg.src = '';
-    segmentedImg.src = '';
+    fileList.innerHTML = '';
+    resultsGrid.innerHTML = '';
+    selectedFilesDiv.classList.add('hidden');
     imagesContainer.classList.add('hidden');
     buttonsContainer.classList.add('hidden');
     hideMessages();
-    
-    // Scroll back to top
     uploadArea.scrollIntoView({ behavior: 'smooth', block: 'center' });
 });
